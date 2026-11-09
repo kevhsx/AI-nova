@@ -75,3 +75,31 @@ uvicorn main:app --reload --port 8001
 - `platform.db`：用户、会话和使用记录数据。
 - `requirements.txt`：Python 依赖。
 - `.env`：AI 服务密钥，请勿提交或公开。
+
+## Automated tests
+
+Use Python 3.12:
+
+```sh
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+Each test uses a temporary SQLite database. Model calls are mocked: the tests check API behaviour, authentication, permissions, upload validation and activity logging, not the quality of a live model's answers. No API key is required.
+
+## Docker
+
+```sh
+docker build -t nova-ai:local .
+docker run --rm --name nova-ai -p 127.0.0.1:8000:8000 -v nova-data:/data nova-ai:local
+```
+
+Open http://localhost:8000. The named volume preserves the database. To enable live model requests, add `--env-file .env` before the image name; keep that file private. Only the application, HTML and dependency list enter the build context. The image runs as a non-root user and includes a health check.
+
+This is a local demonstration application with seeded demonstration accounts. Keep it bound to localhost; public deployment requires replacing the demonstration account setup and reviewing the application configuration.
+
+## Continuous integration
+
+[GitHub Actions](https://github.com/kevhsx/AI-nova/actions) runs the API tests and builds and starts the Docker image on pushes and pull requests. The Docker job checks `/health`; the test job retains a JUnit report. A green run confirms these checks, not live AI quality or cloud deployment.

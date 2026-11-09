@@ -1,0 +1,37 @@
+name: Tests and Docker
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest -q --junitxml=test-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pytest-results
+          path: test-results.xml
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t nova-ai:ci .
+      - name: Start container and verify health
+        run: |
+          docker run -d --name nova-ci -p 127.0.0.1:8000:8000 nova-ai:ci
+          for attempt in $(seq 1 30); do
+            if curl --fail http://127.0.0.1:8000/health; then exit 0; fi
+            sleep 2
+          done
+          docker logs nova-ci
+          exit 1
+      - name: Clean up
+        if: always()
+        run: docker rm -f nova-ci || true
